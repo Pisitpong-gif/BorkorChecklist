@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BorkorChecklist — ระบบบันทึกภารกิจ & แจ้งเตือน LINE</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Prompt สำหรับภาษาไทยที่สวยงามและอ่านง่าย -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-brand-100 selection:text-brand-800">
+
+  <!-- Navbar ส่วนหัวเว็บไซต์ -->
+  <header class="bg-white border-b border-blue-100 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-3">
+      <!-- โลโก้และชื่อระบบ -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center text-white shadow-md shadow-blue-200 shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight leading-tight">
+            Task<span class="text-brand-600">Blue</span>
+          </h1>
+          <p class="text-xs text-slate-500 hidden sm:block">• บันทึกภารกิจ • แจ้งเตือน LINE</p>
+        </div>
+      </div>
+
+      <!-- สถานะการเชื่อมต่อ Google Sheet -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div id="connectionBadge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-brand-700 border border-blue-200">
+          <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+          <span id="connectionText">Check the system...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+    <!-- สรุปภาพรวมภารกิจ (Stats Cards) -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-blue-100 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">ภารกิจทั้งหมด</p>
+          <p id="statTotal" class="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">0</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-blue-50 text-brand-600 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-blue-100 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">กำหนดวันนี้</p>
+          <p id="statToday" class="text-2xl sm:text-3xl font-bold text-brand-600 mt-1">0</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-blue-100 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">เกินกำหนด</p>
+          <p id="statOverdue" class="text-2xl sm:text-3xl font-bold text-rose-600 mt-1">0</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-blue-100 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">เสร็จสิ้นแล้ว</p>
+          <p id="statCompleted" class="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1">0</p>
+        </div>
+        <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Layout 2 คอลัมน์: ฟอร์มเพิ่มภารกิจ (ซ้าย) + รายการภารกิจ (ขวา) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ฟอร์มบันทึกภารกิจใหม่ -->
+      <section class="lg:col-span-5 bg-white rounded-2xl p-5 sm:p-6 border border-blue-100 shadow-sm">
+        <div class="flex items-center gap-2.5 mb-5">
+          <div class="w-8 h-8 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </div>
+          <h2 class="text-lg font-bold text-slate-900">เพิ่มภารกิจใหม่</h2>
+        </div>
+
+        <form id="taskForm" class="space-y-4">
+          <div>
+            <label for="taskTitle" class="block text-sm font-medium text-slate-700 mb-1.5">
+              ชื่อภารกิจ / สิ่งที่ต้องทำ <span class="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="taskTitle"
+              required
+              placeholder="เช่น ส่งงาน, ประชุมทีม..."
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition text-sm"
+            />
+          </div>
+
+          <div>
+            <label for="taskDesc" class="block text-sm font-medium text-slate-700 mb-1.5">
+              รายละเอียดเพิ่มเติม
+            </label>
+            <textarea
+              id="taskDesc"
+              rows="2"
+              placeholder="ระบุรายละเอียด สถานที่ หรือลิงก์เอกสาร..."
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition text-sm resize-none"
+            ></textarea>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="taskDate" class="block text-sm font-medium text-slate-700 mb-1.5">
+                วันที่แจ้งเตือน <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="taskDate"
+                required
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition text-sm"
+              />
+            </div>
+
+            <div>
+              <label for="taskTime" class="block text-sm font-medium text-slate-700 mb-1.5">
+                เวลาแจ้งเตือน
+              </label>
+              <input
+                type="time"
+                id="taskTime"
+                value="09:00"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="taskPriority" class="block text-sm font-medium text-slate-700 mb-1.5">
+              ระดับความสำคัญ
+            </label>
+            <select
+              id="taskPriority"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition text-sm"
+            >
+              <option value="ทั่วไป">ทั่วไป (Normal)</option>
+              <option value="ปานกลาง" selected>ปานกลาง (Medium)</option>
+              <option value="ด่วนมาก">ด่วนมาก (High Priority)</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            id="submitBtn"
+            class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-semibold text-sm shadow-md shadow-blue-200 transition flex items-center justify-center gap-2 active:scale-[0.99]"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>บันทึกภารกิจ</span>
+          </button>
+        </form>
+
+        <!-- กล่องแนะนำ LINE Alert -->
+        <div class="mt-5 p-3.5 rounded-xl bg-brand-50/80 border border-blue-100 flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+            LINE
+          </div>
+          <div class="text-xs text-slate-600 leading-relaxed">
+            <span class="font-semibold text-slate-800">ระบบการแจ้งเตือน:</span> เมื่อบันทึกภารกิจใหม่ และเมื่อถึงวันที่/เวลาที่ระบุ ระบบจะส่งข้อความแจ้งเตือนเข้าบัญชี LINE ของคุณโดยอัตโนมัติ
+          </div>
+        </div>
+      </section>
+
+      <!-- รายการภารกิจ (Task List) -->
+      <section class="lg:col-span-7 space-y-4">
+        <!-- แถบตัวกรองและปุ่มจัดการ -->
+        <div class="bg-white rounded-2xl p-4 border border-blue-100 shadow-sm space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <!-- แท็บตัวกรอง -->
+            <div class="flex flex-wrap items-center gap-1.5" id="filterTabs">
+              <button type="button" data-filter="all" class="filter-btn active px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-brand-600 text-white transition">
+                ทั้งหมด
+              </button>
+              <button type="button" data-filter="today" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-brand-700 transition">
+                วันนี้
+              </button>
+              <button type="button" data-filter="pending" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-brand-700 transition">
+                รอดำเนินการ
+              </button>
+              <button type="button" data-filter="completed" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-brand-700 transition">
+                เสร็จสิ้น
+              </button>
+            </div>
+
+            <!-- ปุ่มรีเฟรชข้อมูลจาก Google Sheet -->
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                onclick="syncFromGoogleSheet()"
+                title="โหลดข้อมูลล่าสุดจาก Google Sheet"
+                class="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-600 transition"
+              >
+                <svg id="syncIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- ช่องค้นหา -->
+          <div class="relative">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="ค้นหาชื่อภารกิจ หรือรายละเอียด..."
+              class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-brand-500 outline-none text-sm transition"
+            />
+          </div>
+        </div>
+
+        <!-- รายการการ์ดภารกิจ -->
+        <div id="taskListContainer" class="space-y-3">
+          <!-- แสดงรายการผ่าน JavaScript -->
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-blue-100 py-4 mt-8">
+    <div class="max-w-6xl mx-auto px-4 text-center text-xs text-slate-500">
+      BorkorChecklist • ระบบจัดการภารกิจ และแจ้งเตือน LINE โดย <a href="https://borkor.com" target="_blank" class="text-brand-600 hover:underline">Borkor</a> • <span id="currentYear"></span>
+    </div>
+  </footer>
+
+  <!-- Custom Confirm Modal แทนการใช้ confirm() -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-xl border border-blue-100 text-center space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+        </svg>
+      </div>
+      <div>
+        <h4 class="text-base font-bold text-slate-900">ยืนยันการลบภารกิจ?</h4>
+        <p class="text-xs text-slate-500 mt-1">ข้อมูลภารกิจนี้จะถูกลบออกจากรายการ</p>
+      </div>
+      <div class="flex items-center gap-2 pt-2">
+        <button type="button" onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm transition">
+          ยกเลิก
+        </button>
+        <button type="button" id="confirmDeleteBtn" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm transition">
+          ลบภารกิจ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification แทนการใช้ alert() -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <script>
+    // =========================================================================
+    // 1. ตั้งค่าลิงก์ Google Apps Script Web App URL ที่นี่
+    //    (นำ URL ที่ได้จากการ Deploy Web App ใน Google Sheet มาวางแทนที่ข้อความด้านล่าง)
+    // =========================================================================
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzkcTsNzbPF6s7cKJL-0SmJHyhJx2ouKo4ocIl1oHQmePCsFPtkG0gW80_6tY8ArWc9fQ/exec';
+
+    let currentFilter = 'all';
+    let searchQuery = '';
+    let pendingDeleteId = null;
+    let tasks = [];
+
+    // ฟังก์ชันตรวจสอบว่ามีการฝังลิงก์ Apps Script ที่ถูกต้องแล้วหรือยัง
+    function isAppsScriptConfigured() {
+      return (
+        typeof GAS_WEB_APP_URL === 'string' &&
+        GAS_WEB_APP_URL.trim() !== '' &&
+        !GAS_WEB_APP_URL.includes('ใส่_URL_') &&
+        GAS_WEB_APP_URL.startsWith('https://script.google.com/')
+      );
+    }
+
+    // ฟังก์ชันช่วยคืนค่าวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD (เวลาไทย)
+    function getTodayString() {
+      const now = new Date();
+      const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+      const localDate = new Date(now.getTime() - offsetMs);
+      return localDate.toISOString().split('T')[0];
+    }
+
+    // =========================================================================
+    // 2. การเริ่มต้นทำงานของหน้าเว็บ (Initialization)
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('taskDate').value = getTodayString();
+      setupEventListeners();
+      renderTasks();
+
+      if (isAppsScriptConfigured()) {
+        await syncFromGoogleSheet(true);
+      } else {
+        setConnectionStatus('unconfigured');
+      }
+    });
+
+    function setupEventListeners() {
+      // ฟอร์มเพิ่มภารกิจ
+      document.getElementById('taskForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await handleAddTask();
+      });
+
+      // ปุ่มตัวกรองสถานะ
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn').forEach(b => {
+            b.classList.remove('bg-brand-600', 'text-white');
+            b.classList.add('bg-slate-100', 'text-slate-600');
+          });
+          btn.classList.remove('bg-slate-100', 'text-slate-600');
+          btn.classList.add('bg-brand-600', 'text-white');
+          currentFilter = btn.dataset.filter;
+          renderTasks();
+        });
+      });
+
+      // ช่องค้นหา
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        searchQuery = e.target.value.trim().toLowerCase();
+        renderTasks();
+      });
+
+      // ปุ่มยืนยันลบใน Modal
+      document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+        if (pendingDeleteId) {
+          await executeDeleteTask(pendingDeleteId);
+          closeConfirmModal();
+        }
+      });
+    }
+
+    // =========================================================================
+    // 3. การจัดการข้อมูลภารกิจ (CRUD + Google Sheet Sync)
+    // =========================================================================
+    async function handleAddTask() {
+      if (!isAppsScriptConfigured()) {
+        showToast('กรุณาฝังลิงก์ GAS_WEB_APP_URL ในไฟล์ HTML ก่อนใช้งาน', 'error');
+        return;
+      }
+
+      const titleInput = document.getElementById('taskTitle');
+      const descInput = document.getElementById('taskDesc');
+      const dateInput = document.getElementById('taskDate');
+      const timeInput = document.getElementById('taskTime');
+      const priorityInput = document.getElementById('taskPriority');
+      const submitBtn = document.getElementById('submitBtn');
+
+      const title = titleInput.value.trim();
+      const dueDate = dateInput.value;
+      if (!title || !dueDate) {
+        showToast('กรุณากรอกชื่อภารกิจและวันที่กำหนด', 'error');
+        return;
+      }
+
+      const newTask = {
+        id: 'TASK-' + Date.now(),
+        title: title,
+        description: descInput.value.trim(),
+        dueDate: dueDate,
+        dueTime: timeInput.value || '09:00',
+        priority: priorityInput.value,
+        status: 'pending',
+        notified: 'NO'
+      };
+
+      // อัปเดต UI ทันที
+      tasks.unshift(newTask);
+      renderTasks();
+
+      // รีเซ็ตฟอร์ม
+      titleInput.value = '';
+      descInput.value = '';
+      dateInput.value = getTodayString();
+
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-70');
+      showToast('กำลังบันทึกลง Google Sheet...', 'info');
+
+      try {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'add', task: newTask })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('บันทึกภารกิจรียบร้อย!', 'success');
+          await syncFromGoogleSheet(true);
+        } else {
+          showToast('เกิดข้อผิดพลาดจากชีต: ' + (data.error || 'ไม่ทราบสาเหตุ'), 'error');
+        }
+      } catch (err) {
+        console.error('Add task error:', err);
+        showToast('บันทึกไปยัง Google Sheet ไม่สำเร็จ โปรดตรวจสอบการเชื่อมต่อ', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-70');
+      }
+    }
+
+    async function toggleTaskStatus(id) {
+      const task = tasks.find(t => String(t.id) === String(id));
+      if (!task) return;
+
+      const previousStatus = task.status;
+      const newStatus = previousStatus === 'completed' ? 'pending' : 'completed';
+      task.status = newStatus;
+      renderTasks();
+
+      if (!isAppsScriptConfigured()) return;
+
+      try {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'toggle', id: id, status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(
+            newStatus === 'completed' ? 'ทำเครื่องหมายเสร็จสิ้นแล้ว' : 'เปลี่ยนสถานะเป็นรอดำเนินการ',
+            'success'
+          );
+        } else {
+          task.status = previousStatus;
+          renderTasks();
+          showToast('อัปเดตสถานะในชีตไม่สำเร็จ: ' + (data.error || 'ไม่ทราบสาเหตุ'), 'error');
+        }
+      } catch (err) {
+        console.error('Toggle task error:', err);
+        task.status = previousStatus;
+        renderTasks();
+        showToast('เชื่อมต่อ Google Sheet ไม่สำเร็จ', 'error');
+      }
+    }
+
+    function promptDeleteTask(id) {
+      pendingDeleteId = id;
+      const modal = document.getElementById('confirmModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeConfirmModal() {
+      pendingDeleteId = null;
+      const modal = document.getElementById('confirmModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    async function executeDeleteTask(id) {
+      const taskIndex = tasks.findIndex(t => String(t.id) === String(id));
+      if (taskIndex === -1) return;
+
+      const removedTask = tasks[taskIndex];
+      tasks.splice(taskIndex, 1);
+      renderTasks();
+
+      if (!isAppsScriptConfigured()) return;
+
+      try {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'delete', id: id })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('ลบภารกิจออกจาก Google Sheet เรียบร้อย', 'success');
+        } else {
+          tasks.splice(taskIndex, 0, removedTask);
+          renderTasks();
+          showToast('ลบภารกิจในชีตไม่สำเร็จ: ' + (data.error || 'ไม่ทราบสาเหตุ'), 'error');
+        }
+      } catch (err) {
+        console.error('Delete task error:', err);
+        tasks.splice(taskIndex, 0, removedTask);
+        renderTasks();
+        showToast('เชื่อมต่อ Google Sheet ไม่สำเร็จ', 'error');
+      }
+    }
+
+    async function syncFromGoogleSheet(silent = false) {
+      if (!isAppsScriptConfigured()) {
+        setConnectionStatus('unconfigured');
+        return;
+      }
+
+      const icon = document.getElementById('syncIcon');
+      if (icon) icon.classList.add('animate-spin');
+      setConnectionStatus('loading');
+
+      try {
+        const res = await fetch(GAS_WEB_APP_URL);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.tasks)) {
+          tasks = data.tasks;
+          renderTasks();
+          setConnectionStatus('connected');
+          if (!silent) {
+            showToast('ซิงค์ข้อมูลจาก Google Sheet เรียบร้อย', 'success');
+          }
+        } else {
+          setConnectionStatus('error');
+          showToast('ไม่สามารถอ่านข้อมูลจาก Google Sheet: ' + (data.error || 'รูปแบบข้อมูลไม่ถูกต้อง'), 'error');
+        }
+      } catch (err) {
+        setConnectionStatus('error');
+        showToast('เชื่อมต่อ Google Sheet ไม่สำเร็จ โปรดตรวจสอบลิงก์และสิทธิ์ Anyone', 'error');
+      } finally {
+        icon.classList.remove('animate-spin');
+      }
+    }
+
+    // =========================================================================
+    // 4. การแสดงผลรายการภารกิจและสถิติ (UI Rendering)
+    // =========================================================================
+    function renderTasks() {
+      const todayStr = getTodayString();
+
+      // คำนวณสถิติ
+      const total = tasks.length;
+      const todayCount = tasks.filter(t => t.dueDate === todayStr && t.status !== 'completed').length;
+      const overdueCount = tasks.filter(t => t.dueDate < todayStr && t.status !== 'completed').length;
+      const completedCount = tasks.filter(t => t.status === 'completed').length;
+
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statToday').textContent = todayCount;
+      document.getElementById('statOverdue').textContent = overdueCount;
+      document.getElementById('statCompleted').textContent = completedCount;
+
+      // กรองรายการ
+      const filtered = tasks.filter(task => {
+        const matchesSearch =
+          task.title.toLowerCase().includes(searchQuery) ||
+          (task.description && task.description.toLowerCase().includes(searchQuery));
+        if (!matchesSearch) return false;
+
+        if (currentFilter === 'today') return task.dueDate === todayStr;
+        if (currentFilter === 'pending') return task.status !== 'completed';
+        if (currentFilter === 'completed') return task.status === 'completed';
+        return true;
+      });
+
+      const container = document.getElementById('taskListContainer');
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl p-10 border border-blue-100 text-center space-y-2">
+            <div class="w-12 h-12 rounded-2xl bg-blue-50 text-brand-500 flex items-center justify-center mx-auto">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+              </svg>
+            </div>
+            <p class="text-sm font-semibold text-slate-800">ไม่พบรายการภารกิจในหมวดนี้</p>
+            <p class="text-xs text-slate-500">เพิ่มภารกิจใหม่จากฟอร์มด้านซ้ายได้เลย</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(task => {
+        const isDone = task.status === 'completed';
+        const isOverdue = !isDone && task.dueDate < todayStr;
+        const isToday = !isDone && task.dueDate === todayStr;
+
+        // สีป้ายความสำคัญ
+        let priorityBadge = 'bg-slate-100 text-slate-600';
+        if (task.priority === 'ด่วนมาก') priorityBadge = 'bg-rose-50 text-rose-700 border border-rose-200';
+        else if (task.priority === 'ปานกลาง') priorityBadge = 'bg-brand-50 text-brand-700 border border-blue-200';
+
+        // สีป้ายวันที่
+        let dateBadge = 'bg-slate-100 text-slate-600';
+        let dateLabel = formatThaiDate(task.dueDate);
+        if (isDone) {
+          dateBadge = 'bg-emerald-50 text-emerald-700';
+        } else if (isOverdue) {
+          dateBadge = 'bg-rose-50 text-rose-700 border border-rose-200';
+          dateLabel = `เกินกำหนด (${dateLabel})`;
+        } else if (isToday) {
+          dateBadge = 'bg-brand-600 text-white';
+          dateLabel = `วันนี้ (${dateLabel})`;
+        }
+
+        // สถานะแจ้งเตือน LINE
+        const lineBadge = task.notified === 'YES'
+          ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">✓ แจ้ง LINE แล้ว</span>`
+          : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-blue-50 text-brand-700 border border-blue-200">🔔 รอแจ้งเตือน LINE</span>`;
+
+        return `
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border ${isDone ? 'border-slate-200/80 opacity-75' : 'border-blue-100 hover:border-brand-300'} shadow-sm transition flex items-start gap-3.5">
+            <!-- ปุ่มเช็กถูก -->
+            <button
+              type="button"
+              onclick="toggleTaskStatus('${escapeHtml(task.id)}')"
+              class="mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition ${
+                isDone
+                  ? 'bg-emerald-500 border-emerald-500 text-white'
+                  : 'border-slate-300 hover:border-brand-600 bg-white'
+              }"
+              aria-label="เปลี่ยนสถานะภารกิจ"
+            >
+              ${isDone ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>' : ''}
+            </button>
+
+            <!-- เนื้อหาภารกิจ -->
+            <div class="flex-1 min-w-0 space-y-1.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-sm sm:text-base font-semibold ${isDone ? 'line-through text-slate-400' : 'text-slate-900'} break-words">
+                  ${escapeHtml(task.title)}
+                </h3>
+                <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-medium ${priorityBadge}">
+                  ${escapeHtml(task.priority)}
+                </span>
+              </div>
+
+              ${task.description ? `<p class="text-xs sm:text-sm text-slate-500 break-words">${escapeHtml(task.description)}</p>` : ''}
+
+              <div class="flex flex-wrap items-center gap-2 pt-1.5">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${dateBadge}">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  ${dateLabel} • ${escapeHtml(task.dueTime || '09:00')} น.
+                </span>
+                ${lineBadge}
+              </div>
+            </div>
+
+            <!-- ปุ่มลบ -->
+            <button
+              type="button"
+              onclick="promptDeleteTask('${escapeHtml(task.id)}')"
+              class="p-2 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition shrink-0"
+              title="ลบภารกิจ"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 5. การอัปเดตป้ายสถานะการเชื่อมต่อ Google Sheet
+    // =========================================================================
+    function setConnectionStatus(state) {
+      const badge = document.getElementById('connectionBadge');
+      if (!badge) return;
+
+      if (state === 'connected') {
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Online</span>';
+      } else if (state === 'loading') {
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-brand-700 border border-blue-200';
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span><span>กำลังซิงค์ข้อมูล...</span>';
+      } else if (state === 'error') {
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200';
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>Offline</span>';
+      } else {
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200';
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span>กรุณาฝังลิงก์ Apps Script ในโค้ด HTML</span>';
+      }
+    }
+
+    // =========================================================================
+    // 6. ฟังก์ชันช่วยเหลือ (Helpers & Toast)
+    // =========================================================================
+    function formatThaiDate(dateStr) {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      const yearTh = parseInt(parts[0], 10) + 543;
+      const monthName = months[parseInt(parts[1], 10) - 1] || parts[1];
+      const dayNum = parseInt(parts[2], 10);
+      return `${dayNum} ${monthName} ${yearTh}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      let colors = 'bg-slate-900 text-white border-slate-700';
+      if (type === 'success') colors = 'bg-brand-700 text-white border-brand-500';
+      if (type === 'error') colors = 'bg-rose-600 text-white border-rose-500';
+
+      toast.className = `pointer-events-auto px-4 py-3 rounded-2xl shadow-lg border text-xs sm:text-sm font-medium flex items-center justify-between gap-3 transition-all duration-300 ${colors}`;
+      toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+  </script>
+</body>
+</html>
